@@ -1,5 +1,4 @@
 import re
-import time
 from copy import deepcopy
 
 import numpy as np
@@ -49,17 +48,18 @@ def butter_notch(data, cutoff, var=1, fs=FS, order=4):
     nyq = fs * 0.5
     low = (cutoff - var) / nyq
     high = (cutoff + var) / nyq
-    b, a = signal.iirfilter(order, [low, high], btype='bandstop', ftype="butter")
+    b, a = signal.iirfilter(order, [low, high], btype='bandstop', ftype='butter')
     
     return signal.filtfilt(b, a, data)
 
 
 def filter_data(data, fs=FS, notchs=[60, 120], lowpass=30., highpass=3.):
     data = deepcopy(data)
-    for notch in notchs:
-        data = butter_notch(data, notch, fs=fs)
-    data = butter_lowpass(data, lowpass, fs=fs)
-    data = butter_highpass(data, highpass, fs=fs)
+    for i in range(10):
+        for notch in notchs:
+            data = butter_notch(data, notch, fs=fs)
+        data = butter_lowpass(data, lowpass, fs=fs)
+        data = butter_highpass(data, highpass, fs=fs)
 
     return data
 
@@ -78,19 +78,18 @@ def get_features(data):
     return features, y
 
 
-def segment_array(array, buffer_size, time_interval, real_time=False):
-    if buffer_size <= 0 or time_interval <= 0:
-        raise ValueError("buffer_size e time_interval devem ser maiores que zero.")
+def segment_array(array, buffer_size, overlap=0):
+    if buffer_size <= 0:
+        raise ValueError('buffer_size devem ser maiores que zero.')
 
     array = array.T
-    num_buffers = int(np.ceil(array.shape[0] / float(buffer_size)))
+    step_size = buffer_size - overlap
+    num_buffers = int(np.ceil((array.shape[0] - overlap) / float(step_size)))
     for i in range(num_buffers):
-        start_index = i * buffer_size
-        end_index = min((i + 1) * buffer_size, array.shape[0])
+        start_index = i * step_size
+        end_index = start_index + buffer_size
         buffer = array[start_index:end_index, :]
         yield buffer.T 
-        if real_time:
-            time.sleep(time_interval)
 
 
 def load_openbci_output_file(filename):
